@@ -30,7 +30,7 @@ var mime = {
 };
 
 function prepareConfig(){
-    var cfgFile = 'config.json';
+    var cfgFile = path.join(__dirname,'config.json');
     fs.readFile(cfgFile, 'utf8', (err,cfgStr)=>{
         if(!err){
             CONFIG_OBJ = JSON.parse(cfgStr);
@@ -58,7 +58,7 @@ function main() {
         var host = getIPAdress();
         var url = `http://${host}:${port}`
         console.log('url: ' + url);
-        cp.exec('call "'+CONFIG_OBJ.browser+'" '+url,function(){})
+        cp.exec(CONFIG_OBJ.browser+' '+url,function(){})
     });
 }
 
