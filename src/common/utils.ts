@@ -36,8 +36,3 @@ export function walkObj(obj: any, dealFuc: (value:any, key:string, obj:any)=>voi
         }
     }
 }
-
-export interface ICountObj{
-    value: number;
-}
-
