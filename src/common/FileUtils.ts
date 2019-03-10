@@ -8,38 +8,38 @@ import * as crypto from "crypto"
 
 export function getErrCallback(dealFuc: (...args: any[]) => void) {
     return function(err: NodeJS.ErrnoException, ...args: any[]) {
-        if (err) console.warn(err);
+        if (err) throw err;
         else dealFuc.apply(null, args);
     }
 }
 
-export function walkDir(dirPath: string, dealFuc: (filePath: string) => void) {
-    fs.readdir(dirPath, getErrCallback((files) => {
+export function walkDir(dirPath: string, dealFuc: (filePath: string) => void, callObj?: any) {
+    fs.readdir(dirPath, getErrCallback((files: string[]) => {
         for (let i = 0, len = files.length; i < len; i++) {
             let child = path.join(dirPath, files[i]);
-            fs.stat(child, getErrCallback((stats) => {
+            fs.stat(child, getErrCallback((stats: fs.Stats) => {
                 if (stats.isDirectory()) {
-                    walkDir(child, dealFuc)
+                    walkDir(child, dealFuc, callObj)
                 } else {
-                    dealFuc(child);
+                    dealFuc.call(callObj, child);
                 }
             }))
         }
     }))
 }
 
-export function getMD5(file: string, dealFuc: (md5: string, filePath: string) => void) {
+export function getMD5(file: string, dealFuc: (md5: string, filePath: string) => void, callObj?:any) {
     let hash = crypto.createHash('md5');
     let rs = fs.createReadStream(file);
     rs.on('data', chunk => {
         hash.update(chunk)
     })
     rs.on('end', () => {
-        dealFuc(hash.digest('hex'), file);
+        dealFuc.call(callObj, hash.digest('hex'), file);
     })
 }
 
-export function copyFileWithDirCreation(src: string, dest: string, flag = 0, callback?: (dest: string, src: string) => void) {
+export function copyFileWithDirCreation(src: string, dest: string, flag = 0, callback?: (dest: string, src: string) => void, callObj?:any) {
     dest = path.normalize(dest);
     let destPath = dest.split(path.sep);
     let destLen = destPath.length;
@@ -68,7 +68,7 @@ export function copyFileWithDirCreation(src: string, dest: string, flag = 0, cal
 
     function doCopy() {
         fs.copyFile(src, dest, flag, getErrCallback(() => {
-            if(callback) callback(dest, src)
+            if(callback) callback.call(callObj, dest, src)
         }))
     }
 }
