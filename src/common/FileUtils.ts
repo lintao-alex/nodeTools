@@ -43,7 +43,7 @@ export function getMD5(file: string, dealFuc: (md5: string, filePath: string) =>
     })
 }
 
-let waitingDirMakeCallMap = new Map<string, any[]>();
+let waitingDirMakeCallMap = new Map<string, any[]>();//deal make the same dir at the same time
 export function copyFileWithDirCreation(src: string, dest: string, flag = 0, callback?: (dest: string, src: string) => void, callObj?: any) {
     dest = path.normalize(dest);
     let destPath = dest.split(path.sep);
@@ -61,7 +61,7 @@ export function copyFileWithDirCreation(src: string, dest: string, flag = 0, cal
             let checkPath = destPath.slice(0, order).join(path.sep);
             fs.access(checkPath, fs.constants.F_OK, err => {
                 if (err) {
-                    let args = [checkDir, destPath, order + 1];
+                    let args = [checkDir, destPath, order + 1];//attention!!! every checkDir function is different in action scope
                     let argsList = waitingDirMakeCallMap.get(checkPath);
                     if (argsList) {
                         argsList.push(args);
@@ -101,3 +101,4 @@ export function cutRelativePath(fullPath: string, root: string) {
     while (out.charAt(headIdx) == path.sep) ++headIdx;
     return out.slice(headIdx);
 }
+

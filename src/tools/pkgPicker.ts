@@ -53,7 +53,8 @@ export class BasePicker {
         ++this._cnt;
         let map = this._map;
         getMD5(fullPath, md5 => {
-            if (md5 != map[relativePath]) {
+            let oldMd5 = map[relativePath];
+            if (md5 != oldMd5) {
                 map[relativePath] = md5;
                 copyFileWithDirCreation(fullPath, path.join(this._destRoot, relativePath), 0, dest => {
                     log(dest + ' has been picked')
@@ -66,7 +67,6 @@ export class BasePicker {
     }
 
     private checkFinish(){
-        console.log(this._cnt)
         if(--this._cnt<=0){
             let callback = this._finCall;
             if(callback){
