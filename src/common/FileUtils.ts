@@ -90,6 +90,7 @@ export function copyFileWithDirCreation(src: string, dest: string, flag = 0, cal
 
     function doCopy() {
         fs.copyFile(src, dest, flag, getErrCallback(() => {
+            log(dest + '[copied]')
             if (callback) callback.call(callObj, dest, src)
         }))
     }
@@ -105,5 +106,12 @@ export function cutRelativePath(fullPath: string, root: string) {
 
 export function getDestByRelative(referFrom: string, referTo: string, dest: string){
     return path.join(dest, path.relative(referFrom, referTo));
+}
+
+export function normalizePathList(orgList: string[]) {
+    for (let i = orgList.length - 1; i >= 0; i--) {
+        let org = orgList[i];
+        orgList[i] = path.normalize(org);
+    }
 }
 

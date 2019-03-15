@@ -8,14 +8,15 @@ import {walkObj} from "../common/utils";
 import * as path from "path";
 import {replaceMinJs} from "./scriptReleaser";
 import {log} from "util";
-import {copyFileWithDirCreation, cutRelativePath, getMD5} from "../common/FileUtils";
+import {copyFileWithDirCreation, cutRelativePath, getDestByRelative, getMD5} from "../common/FileUtils";
 
 let rootPath = 'D:\\WORK\\prj-yjqz\\client_AWY\\yjqz';
 let resourceRootPath = path.join(rootPath, 'resource');
 let resourceFilePath = path.join(resourceRootPath, 'resource.json');
-let destRoot = 'G:\\todo\\lala';
-let resVerPick = new Promise((resolve, reject) => {
+let destRoot = 'G:\\dynamic';
+let scriptVersionFilePath = 'D:\\WORK\\prj-yjqz\\client_AWY\\tool\\version\\scriptVersion.json';
 
+function resVerPick(resolve?:Function){
     let content = fs.readFileSync(resourceFilePath, { encoding: 'utf8' })
     let jsObj = JSON.parse(content);
     let resList = jsObj.resources;
@@ -30,7 +31,7 @@ let resVerPick = new Promise((resolve, reject) => {
         pureMap[path.normalize(pureUrl)] = vv[1];
     }
 
-    let release = new BasePicker(resourceRootPath, destRoot, pureMap);
+    let release = new BasePicker(resourceRootPath, getDestByRelative(rootPath, resourceRootPath, destRoot), pureMap);
     release.resetExcludeList(['resource.json', 'fightDemo.json'])
     release.start(() => {
         for (let i = resList.length - 1; i >= 0; i--) {
@@ -41,32 +42,36 @@ let resVerPick = new Promise((resolve, reject) => {
         fs.writeFile(resourceFilePath, getOrderedJsonStr(jsObj), 'utf8', err => {
             if (err) throw err;
             console.log('resource finish')
-            resolve('hehe');
+            if(resolve) resolve();
         })
     })
-})
-resVerPick.then((...args: any[]) => {
+}
+function dealScripts(oldVersionMap:any){
     let manifestFilePath = path.join(rootPath, 'manifest.json');
 
     let content = fs.readFileSync(manifestFilePath, { encoding: 'utf8' })
     let jsObj = JSON.parse(content);
     let scriptList = jsObj.scripts;
 
-    replaceMinJs(rootPath, scriptList, () => {
+    // replaceMinJs(rootPath, scriptList, () => {
         let pickCnt = 0;
-        walkObj(scriptList, (value: string, key, obj) => {
-            let vv = value.split('?v=');
-            let pureUrl = vv[0];
-            let relativeUrl = path.normalize(pureUrl)
-            let map: any = {}
-            map[relativeUrl] = vv[1];
+        walkObj(scriptList, (pureUrl: string, key, obj) => {
+            if(pureUrl.indexOf('http')==0) return;
+            let relativeUrl = path.normalize(pureUrl);
+            let map:any = {};
+            map[relativeUrl] = oldVersionMap[pureUrl];
             let picker = new BasePicker(rootPath, destRoot, map)
+            picker.resetAppointRelativeList([relativeUrl]);
             ++pickCnt;
             picker.start(() => {
                 obj[key] = pureUrl + '?v=' + map[relativeUrl];
+                oldVersionMap[pureUrl] = map[relativeUrl];
                 if (--pickCnt == 0) {
+                    fs.writeFile(scriptVersionFilePath, JSON.stringify(oldVersionMap),{encoding:'utf8'}, err=>{
+                        if(err) throw err;
+                        log('script version file update')
+                    })
                     log('script finish')
-                    //todo Main.min.js
                     let assetsParams = jsObj.assetsParams;
                     getMD5(resourceFilePath, md5 => {
                         if (md5 != assetsParams.configVersion) {
@@ -91,7 +96,18 @@ resVerPick.then((...args: any[]) => {
                 }
             })
         })
+    // })
+}
+
+function checkOldScriptVersion(){
+    fs.readFile(scriptVersionFilePath, {encoding:'utf8'}, (err,content)=>{
+        if(err){
+            var versionMap:any = {}
+        }else{
+            versionMap = JSON.parse(content);
+        }
+        dealScripts(versionMap);
     })
-})
+}
 
-
+resVerPick(checkOldScriptVersion)
