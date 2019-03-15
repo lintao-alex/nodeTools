@@ -96,9 +96,14 @@ export function copyFileWithDirCreation(src: string, dest: string, flag = 0, cal
 }
 
 export function cutRelativePath(fullPath: string, root: string) {
-    let out = fullPath.slice(root.length);
-    let headIdx = 0;
-    while (out.charAt(headIdx) == path.sep) ++headIdx;
-    return out.slice(headIdx);
+    // let out = fullPath.slice(root.length);
+    // let headIdx = 0;
+    // while (out.charAt(headIdx) == path.sep) ++headIdx;
+    // return out.slice(headIdx);
+    return path.relative(root, fullPath);
+}
+
+export function getDestByRelative(referFrom: string, referTo: string, dest: string){
+    return path.join(dest, path.relative(referFrom, referTo));
 }
 
