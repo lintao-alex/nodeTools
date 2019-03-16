@@ -4,7 +4,7 @@
 import {pickCliArgv, walkObj} from "../common/utils";
 import {BasePicker} from "../tools/pkgPicker";
 import * as fs from "fs";
-import {copyFileWithDirCreation, getErrCallback, getMD5} from "../common/FileUtils";
+import {copyFileWithDirCreation, paving, getErrCallback, getMD5} from "../common/FileUtils";
 import * as path from "path";
 import {replaceMinJs} from "../tools/scriptReleaser";
 import {log} from "util";
@@ -50,10 +50,11 @@ function writeManifestWithVersion(scrRoot: string, manifestObj: any, trgPath: st
         getMD5(fileFullPath, md5=>{
             obj[key] = pureUrl+versionMark+md5;
             if(--cnt==0){
-                // copyFileWithDirCreation() todo make it better by auto create parent Dir
-                fs.writeFile(trgPath, JSON.stringify(manifestObj), {encoding:'utf8'}, getErrCallback(()=>{
-                    log(trgPath + 'maked');
-                }))
+                paving(trgPath, ()=>{
+                    fs.writeFile(trgPath, JSON.stringify(manifestObj), {encoding:'utf8'}, getErrCallback(()=>{
+                        log(trgPath + 'maked');
+                    }))
+                })
             }
         })
     })

@@ -45,54 +45,64 @@ export function getMD5(file: string, dealFuc: (md5: string, filePath: string) =>
 
 let waitingDirMakeCallMap = new Map<string, any[]>();//deal make the same dir at the same time
 export function copyFileWithDirCreation(src: string, dest: string, flag = 0, callback?: (dest: string, src: string) => void, callObj?: any) {
-    dest = path.normalize(dest);
-    let destPath = dest.split(path.sep);
-    let destLen = destPath.length;
-    if (destLen > 1) {
-        checkDir(destPath, 1)
-    } else {
-        doCopy();
-    }
-
-    function checkDir(destPath: string[], order: number) {
-        if (order >= destPath.length) {
-            doCopy();
-        } else {
-            let checkPath = destPath.slice(0, order).join(path.sep);
-            fs.access(checkPath, fs.constants.F_OK, err => {
-                if (err) {
-                    let args = [checkDir, destPath, order + 1];//attention!!! every checkDir function is different in action scope
-                    let argsList = waitingDirMakeCallMap.get(checkPath);
-                    if (argsList) {
-                        argsList.push(args);
-                    } else {
-                        argsList = [args];
-                        waitingDirMakeCallMap.set(checkPath, argsList);
-                        fs.mkdir(checkPath, getErrCallback(() => {
-                            let argsList2 = waitingDirMakeCallMap.get(checkPath);
-                            waitingDirMakeCallMap.delete(checkPath);
-                            if (argsList2) {
-                                for (let i = argsList2.length - 1; i >= 0; i--) {
-                                    let args = argsList2[i];
-                                    let orgCheckFuc = args[0];
-                                    orgCheckFuc(args[1], args[2]);
-                                }
-
-                            }
-                        }))//recursive option doesn't work on Windows
-                    }
-                } else {
-                    checkDir(destPath, order + 1);
-                }
-            })
-        }
-    }
+    paving(dest, doCopy);
 
     function doCopy() {
         fs.copyFile(src, dest, flag, getErrCallback(() => {
             log(dest + '[copied]')
             if (callback) callback.call(callObj, dest, src)
         }))
+    }
+}
+
+export function paving(destFull: string, callback?: (...args:any[]) => void, callObj?: any, callArgs?: any[]) {
+    destFull = path.normalize(destFull);
+    let destPath = destFull.split(path.sep);
+    let destLen = destPath.length;
+    if (destLen > 1) {
+        checkDir(destPath, 1, ctrlFile)
+    } else {
+        ctrlFile();
+    }
+    function ctrlFile(){
+        if(callback) callback.apply(callObj, callArgs)
+    }
+}
+
+/**
+ * @param destPath ignore the last element
+ * @param order you'd better call by 1
+ */
+function checkDir(destPath: string[], order: number, doFuc: ()=>void) {
+    if (order >= destPath.length) {
+        doFuc();
+    } else {
+        let checkPath = destPath.slice(0, order).join(path.sep);
+        fs.access(checkPath, fs.constants.F_OK, err => {
+            if (err) {
+                let args = [checkDir, destPath, order + 1];//attention!!! every checkDir function is different in action scope
+                let argsList = waitingDirMakeCallMap.get(checkPath);
+                if (argsList) {
+                    argsList.push(args);
+                } else {
+                    argsList = [args];
+                    waitingDirMakeCallMap.set(checkPath, argsList);
+                    fs.mkdir(checkPath, getErrCallback(() => {
+                        let argsList2 = waitingDirMakeCallMap.get(checkPath);
+                        waitingDirMakeCallMap.delete(checkPath);
+                        if (argsList2) {
+                            for (let i = argsList2.length - 1; i >= 0; i--) {
+                                let args = argsList2[i];
+                                let orgCheckFuc = args[0];
+                                orgCheckFuc(args[1], args[2]);
+                            }
+                        }
+                    }))//recursive option doesn't work on Windows
+                }
+            } else {
+                checkDir(destPath, order + 1, doFuc);
+            }
+        })
     }
 }
 
