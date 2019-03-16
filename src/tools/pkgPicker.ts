@@ -51,7 +51,11 @@ export class BasePicker {
             if (this._appointRelativePathList.length > 0) {
                 let list = this._appointRelativePathList;
                 for (let i = list.length - 1; i >= 0; i--) {
-                    this.dealFile(path.join(this._srcRoot, list[i]));
+                    let fullPath = path.join(this._srcRoot, list[i]);
+                    fs.stat(fullPath, getErrCallback((stat: fs.Stats) => {
+                        if ( stat.isDirectory()) walkDir(fullPath, this.dealFile, this);
+                        else this.dealFile(fullPath);
+                    }))
                 }
             } else if (stat.isDirectory()) {
                 walkDir(this._srcRoot, this.dealFile, this)

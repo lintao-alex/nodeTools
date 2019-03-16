@@ -43,13 +43,13 @@ export function getMD5(file: string, dealFuc: (md5: string, filePath: string) =>
     })
 }
 
-let waitingDirMakeCallMap = new Map<string, any[]>();//deal make the same dir at the same time
+let waitingDirMakeCallMap = new Map<string, any[][]>();//deal make the same dir at the same time
 export function copyFileWithDirCreation(src: string, dest: string, flag = 0, callback?: (dest: string, src: string) => void, callObj?: any) {
     paving(dest, doCopy);
 
     function doCopy() {
         fs.copyFile(src, dest, flag, getErrCallback(() => {
-            log(dest + '[copied]')
+            log('[copied] '+dest)
             if (callback) callback.call(callObj, dest, src)
         }))
     }
@@ -80,7 +80,7 @@ function checkDir(destPath: string[], order: number, doFuc: ()=>void) {
         let checkPath = destPath.slice(0, order).join(path.sep);
         fs.access(checkPath, fs.constants.F_OK, err => {
             if (err) {
-                let args = [checkDir, destPath, order + 1];//attention!!! every checkDir function is different in action scope
+                let args = [checkDir, destPath, order + 1, doFuc];//attention!!! every checkDir function is different in action scope
                 let argsList = waitingDirMakeCallMap.get(checkPath);
                 if (argsList) {
                     argsList.push(args);
@@ -93,8 +93,8 @@ function checkDir(destPath: string[], order: number, doFuc: ()=>void) {
                         if (argsList2) {
                             for (let i = argsList2.length - 1; i >= 0; i--) {
                                 let args = argsList2[i];
-                                let orgCheckFuc = args[0];
-                                orgCheckFuc(args[1], args[2]);
+                                let orgCheckFuc: Function = args[0];
+                                orgCheckFuc.apply(null, args.slice(1));
                             }
                         }
                     }))//recursive option doesn't work on Windows
@@ -107,10 +107,6 @@ function checkDir(destPath: string[], order: number, doFuc: ()=>void) {
 }
 
 export function cutRelativePath(fullPath: string, root: string) {
-    // let out = fullPath.slice(root.length);
-    // let headIdx = 0;
-    // while (out.charAt(headIdx) == path.sep) ++headIdx;
-    // return out.slice(headIdx);
     return path.relative(root, fullPath);
 }
 
@@ -122,6 +118,42 @@ export function normalizePathList(orgList: string[]) {
     for (let i = orgList.length - 1; i >= 0; i--) {
         let org = orgList[i];
         orgList[i] = path.normalize(org);
+    }
+}
+
+export function convertMathPathList(relativePathList: string[], root: string, out: string[], callback: (out: string[]) => void, callObj?: any) {
+    let len = relativePathList.length;
+    for (let i = len - 1; i >= 0; i--) {
+        convertMathPath(relativePathList[i], root, out, ()=>{
+            if(--len==0){
+                callback.call(callObj, out);
+            }
+        })
+    }
+}
+
+export function convertMathPath(relativePath: string, root: string, out: string[], callback: (out: string[]) => void, callObj?: any) {
+    let markIdx = relativePath.indexOf('*');
+    if (markIdx >= 0) {
+        let fullPath = path.join(root, relativePath);
+        let fullDir = path.dirname(fullPath);
+        let matchStr = path.basename(fullPath);
+        matchStr = matchStr.replace(/\./g, '\\.')
+        matchStr = matchStr.replace(/\*/g, '.*');
+        let matchReg = new RegExp(matchStr);
+        fs.readdir(fullDir, getErrCallback((fileList: string[]) => {
+            for (let i = fileList.length - 1; i >= 0; i--) {
+                let fileName = fileList[i];
+                if (fileName.match(matchReg)) {//todo care dir
+                    let fullPath = path.join(fullDir, fileName);
+                    out.push(path.relative(root, fullPath));
+                }
+            }
+            callback.call(callObj, out);
+        }))
+    } else {
+        out.push(relativePath);
+        callback.call(callObj, out);
     }
 }
 

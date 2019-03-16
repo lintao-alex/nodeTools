@@ -4,7 +4,14 @@
 import {pickCliArgv, walkObj} from "../common/utils";
 import {BasePicker} from "../tools/pkgPicker";
 import * as fs from "fs";
-import {copyFileWithDirCreation, paving, getErrCallback, getMD5} from "../common/FileUtils";
+import {
+    copyFileWithDirCreation,
+    paving,
+    getErrCallback,
+    getMD5,
+    convertMathPath,
+    convertMathPathList
+} from "../common/FileUtils";
 import * as path from "path";
 import {replaceMinJs} from "../tools/scriptReleaser";
 import {log} from "util";
@@ -15,8 +22,61 @@ let versionMap: any;
 function main(){
     fs.readFile(process.argv[2], {encoding: 'utf8'}, getErrCallback((content: string)=>{
         let fileCfg: IFileCfg = JSON.parse(content);
-        createManifestFile(fileCfg.srcRoot, fileCfg.manifestPath, fileCfg.destRoot, fileCfg.useDebugJs);
+        fileCfg.srcRoot = path.normalize(fileCfg.srcRoot);
+        fileCfg.destRoot = path.normalize(fileCfg.destRoot);
+        fileCfg.versionFullPath = path.normalize(fileCfg.versionFullPath);
+        checkCfg(fileCfg, ()=>{
+            createManifestFile(fileCfg.srcRoot, fileCfg.manifestPath, fileCfg.destRoot, fileCfg.useDebugJs);
+            pickFiles(fileCfg);
+        })
     }))
+}
+
+function checkCfg(fileCfg: IFileCfg, callback: ()=>void){
+    let cnt = 3;
+    fs.access(fileCfg.srcRoot, fs.constants.F_OK, getErrCallback(checkFinish))
+    fs.access(fileCfg.destRoot, fs.constants.F_OK, getErrCallback(checkFinish))
+    fs.access(path.dirname(fileCfg.versionFullPath), fs.constants.F_OK, getErrCallback(checkFinish))
+
+    function checkFinish(){
+        if(--cnt==0){
+            callback();
+        }
+    }
+}
+
+function pickFiles(fileCfg: IFileCfg) {
+    fs.readFile(fileCfg.versionFullPath, {encoding:'utf8'}, (err, content)=>{
+        if(err || !content){
+            var versionMap = {}
+        }else{
+            versionMap = JSON.parse(content);
+        }
+        let srcRoot = fileCfg.srcRoot;
+        let picker = new BasePicker(srcRoot, fileCfg.destRoot, versionMap)
+        let include = fileCfg.include;
+        if(include && include.length > 0){
+            picker.resetAppointRelativeList(include);
+        }
+        let exclude = fileCfg.exclude;
+        if(exclude && exclude.length > 0){
+            let excludeRelativeList: string[] = [];
+            convertMathPathList(exclude, srcRoot, excludeRelativeList, ()=>{
+                picker.resetExcludeList(excludeRelativeList);
+                doPick();
+            })
+        }else{
+            doPick();
+        }
+
+        function doPick(){
+            picker.start(()=>{
+                fs.writeFile(fileCfg.versionFullPath, JSON.stringify(versionMap), {encoding:'utf8'}, getErrCallback(()=>{
+                    log('[version] new version recorded')
+                }))
+            })
+        }
+    })
 }
 
 function createManifestFile(srcRoot: string, manifestPath: string, destRoot: string, useDebugJS: boolean){
@@ -52,7 +112,7 @@ function writeManifestWithVersion(scrRoot: string, manifestObj: any, trgPath: st
             if(--cnt==0){
                 paving(trgPath, ()=>{
                     fs.writeFile(trgPath, JSON.stringify(manifestObj), {encoding:'utf8'}, getErrCallback(()=>{
-                        log(trgPath + 'maked');
+                        log('[manifest]'+trgPath + ' maked');
                     }))
                 })
             }
@@ -66,7 +126,7 @@ interface IFileCfg {
     srcRoot: string;
     destRoot: string;
     manifestPath: string;
-    versionFullPath: string;
+    versionFullPath: string;//full path of the file which record the last version map, but the key is relative path in this file
     useDebugJs: boolean;
     include?: string[];
     exclude?: string[];
