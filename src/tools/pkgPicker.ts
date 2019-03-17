@@ -55,14 +55,14 @@ export class BasePicker {
                     fs.stat(fullPath, getErrCallback((stat: fs.Stats) => {
                         if ( stat.isDirectory()){
                             ++this._dirWalkingCnt;
-                            walkDir(fullPath, this.dealFile, this);
+                            walkDir(fullPath, this.dealFile, this, this.onOneDirWalkFinish);
                         }
                         else this.dealFile(fullPath);
                     }))
                 }
             } else if (stat.isDirectory()) {
                 ++this._dirWalkingCnt;
-                walkDir(this._srcRoot, this.dealFile, this)
+                walkDir(this._srcRoot, this.dealFile, this, this.onOneDirWalkFinish)
             } else {
                 // this.dealFile(this._srcRoot)
                 throw new Error("this picker doesn't work on file directly")
