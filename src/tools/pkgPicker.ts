@@ -10,7 +10,6 @@ import {
     normalizePathList,
     walkDir
 } from "../common/FileUtils";
-import {log} from "util";
 import * as fs from "fs";
 
 export class BasePicker {
@@ -22,7 +21,8 @@ export class BasePicker {
     private _finCall: Function | undefined;
     private _callObj: any;
     private _callArgs: Array<any> | undefined;
-    private _cnt = 0;
+    private _dealFileCnt = 0;
+    private _dirWalkingCnt = 0;
 
     /**
      * @param _map relativePath->md5
@@ -46,18 +46,22 @@ export class BasePicker {
         this._finCall = finCall;
         this._callObj = callObj;
         this._callArgs = args;
-        this._cnt = 0;
+        this._dealFileCnt = 0;
         fs.stat(this._srcRoot, getErrCallback((stat: fs.Stats) => {
             if (this._appointRelativePathList.length > 0) {
                 let list = this._appointRelativePathList;
                 for (let i = list.length - 1; i >= 0; i--) {
                     let fullPath = path.join(this._srcRoot, list[i]);
                     fs.stat(fullPath, getErrCallback((stat: fs.Stats) => {
-                        if ( stat.isDirectory()) walkDir(fullPath, this.dealFile, this);
+                        if ( stat.isDirectory()){
+                            ++this._dirWalkingCnt;
+                            walkDir(fullPath, this.dealFile, this);
+                        }
                         else this.dealFile(fullPath);
                     }))
                 }
             } else if (stat.isDirectory()) {
+                ++this._dirWalkingCnt;
                 walkDir(this._srcRoot, this.dealFile, this)
             } else {
                 // this.dealFile(this._srcRoot)
@@ -69,23 +73,35 @@ export class BasePicker {
     protected dealFile(fullPath: string) {
         let relativePath = path.relative(this._srcRoot, fullPath);
         if (this._excludePathList.indexOf(relativePath) >= 0) return;
-        ++this._cnt;
+        ++this._dealFileCnt;
         let map = this._map;
         getMD5(fullPath, md5 => {
             let oldMd5 = map[relativePath];
             if (md5 != oldMd5) {
                 map[relativePath] = md5;
                 copyFileWithDirCreation(fullPath, path.join(this._destRoot, relativePath), 0, dest => {
-                    this.checkFinish();
+                    this.checkFileDeal();
                 }, this)
             } else {
-                this.checkFinish();
+                this.checkFileDeal();
             }
         }, this)
     }
 
-    private checkFinish() {
-        if (--this._cnt <= 0) {
+    private checkFileDeal() {
+        if (--this._dealFileCnt == 0 ) {
+            this.checkFinish();
+        }
+    }
+
+    private onOneDirWalkFinish(){
+        if (--this._dirWalkingCnt == 0) {
+            this.checkFinish();
+        }
+    }
+
+    private checkFinish(){
+        if (this._dealFileCnt == 0 && this._dirWalkingCnt == 0) {
             let callback = this._finCall;
             if (callback) {
                 callback.apply(this._callObj, this._callArgs);

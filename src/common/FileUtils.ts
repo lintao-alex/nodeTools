@@ -14,19 +14,38 @@ export function getErrCallback(dealFuc: (...args: any[]) => void) {
     }
 }
 
-export function walkDir(dirPath: string, dealFuc: (fullPath: string) => void, callObj?: any) {
-    fs.readdir(dirPath, getErrCallback((files: string[]) => {
-        for (let i = 0, len = files.length; i < len; i++) {
-            let child = path.join(dirPath, files[i]);
-            fs.stat(child, getErrCallback((stats: fs.Stats) => {
-                if (stats.isDirectory()) {
-                    walkDir(child, dealFuc, callObj)
-                } else {
-                    dealFuc.call(callObj, child);
-                }
-            }))
+/**
+ * @param dirPath must be a directory
+ * @param dealFuc deal the child file
+ * @param finCall call after all the child files were dealt
+ */
+export function walkDir(dirPath: string, dealFuc: (fullPath: string) => void, callObj?: any, finCall?: (...args: any[]) => void, finArgs?: any[]) {
+    let innerCnt = 1;
+    innerWalk(dirPath);
+    function innerWalk(innerDirPath: string) {
+        fs.readdir(innerDirPath, getErrCallback((files: string[]) => {
+            let len = files.length;
+            innerCnt += len;
+            for (let i = 0; i < len; i++) {
+                let child = path.join(innerDirPath, files[i]);
+                fs.stat(child, getErrCallback((stats: fs.Stats) => {
+                    if (stats.isDirectory()) {
+                        innerWalk(child);
+                    } else {
+                        dealFuc.call(callObj, child);
+                        checkFinish();
+                    }
+                }))
+            }
+            checkFinish();
+        }))
+    }
+
+    function checkFinish() {
+        if (finCall && (--innerCnt == 0)){
+            finCall.apply(callObj, finArgs);
         }
-    }))
+    }
 }
 
 export function getMD5(file: string, dealFuc: (md5: string, filePath: string) => void, callObj?: any) {
@@ -141,6 +160,7 @@ export function convertMathPath(relativePath: string, root: string, out: string[
         matchStr = matchStr.replace(/\./g, '\\.')
         matchStr = matchStr.replace(/\*/g, '.*');
         let matchReg = new RegExp(matchStr);
+
         fs.readdir(fullDir, getErrCallback((fileList: string[]) => {
             for (let i = fileList.length - 1; i >= 0; i--) {
                 let fileName = fileList[i];
