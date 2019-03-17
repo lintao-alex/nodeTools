@@ -1,0 +1,18 @@
+{
+  "srcRoot": "D:\\WORK\\prj-yjqz\\client_AWY\\yjqz",
+  "destRoot": "G:\\release",
+  "manifestPath": "manifest.json",
+  "versionFullPath": "D:\\WORK\\prj-yjqz\\client_AWY\\tool\\version\\releaseVersion.json",
+  "useDebugJs": true,
+  "include": [
+    "libs",
+    "platform",
+    "bin-debug",
+    "resource",
+    "index.html"
+  ],
+  "exclude": [
+    "*.d.ts",
+    "*.map"
+  ]
+}
