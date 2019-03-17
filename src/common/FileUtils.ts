@@ -22,6 +22,7 @@ export function getErrCallback(dealFuc: (...args: any[]) => void) {
 export function walkDir(dirPath: string, dealFuc: (fullPath: string) => void, callObj?: any, finCall?: (...args: any[]) => void, finArgs?: any[]) {
     let innerCnt = 1;
     innerWalk(dirPath);
+
     function innerWalk(innerDirPath: string) {
         fs.readdir(innerDirPath, getErrCallback((files: string[]) => {
             let len = files.length;
@@ -42,7 +43,7 @@ export function walkDir(dirPath: string, dealFuc: (fullPath: string) => void, ca
     }
 
     function checkFinish() {
-        if (finCall && (--innerCnt == 0)){
+        if (finCall && (--innerCnt == 0)) {
             finCall.apply(callObj, finArgs);
         }
     }
@@ -68,13 +69,13 @@ export function copyFileWithDirCreation(src: string, dest: string, flag = 0, cal
 
     function doCopy() {
         fs.copyFile(src, dest, flag, getErrCallback(() => {
-            log('[copied] '+dest)
+            log('[copied] ' + dest)
             if (callback) callback.call(callObj, dest, src)
         }))
     }
 }
 
-export function paving(destFull: string, callback?: (...args:any[]) => void, callObj?: any, callArgs?: any[]) {
+export function paving(destFull: string, callback?: (...args: any[]) => void, callObj?: any, callArgs?: any[]) {
     destFull = path.normalize(destFull);
     let destPath = destFull.split(path.sep);
     let destLen = destPath.length;
@@ -83,8 +84,9 @@ export function paving(destFull: string, callback?: (...args:any[]) => void, cal
     } else {
         ctrlFile();
     }
-    function ctrlFile(){
-        if(callback) callback.apply(callObj, callArgs)
+
+    function ctrlFile() {
+        if (callback) callback.apply(callObj, callArgs)
     }
 }
 
@@ -92,7 +94,7 @@ export function paving(destFull: string, callback?: (...args:any[]) => void, cal
  * @param destPath ignore the last element
  * @param order you'd better call by 1
  */
-function checkDir(destPath: string[], order: number, doFuc: ()=>void) {
+function checkDir(destPath: string[], order: number, doFuc: () => void) {
     if (order >= destPath.length) {
         doFuc();
     } else {
@@ -129,7 +131,7 @@ export function cutRelativePath(fullPath: string, root: string) {
     return path.relative(root, fullPath);
 }
 
-export function getDestByRelative(referFrom: string, referTo: string, dest: string){
+export function getDestByRelative(referFrom: string, referTo: string, dest: string) {
     return path.join(dest, path.relative(referFrom, referTo));
 }
 
@@ -143,14 +145,17 @@ export function normalizePathList(orgList: string[]) {
 export function convertMathPathList(relativePathList: string[], root: string, out: string[], callback: (out: string[]) => void, callObj?: any) {
     let len = relativePathList.length;
     for (let i = len - 1; i >= 0; i--) {
-        convertMathPath(relativePathList[i], root, out, ()=>{
-            if(--len==0){
+        convertMathPath(relativePathList[i], root, out, () => {
+            if (--len == 0) {
                 callback.call(callObj, out);
             }
         })
     }
 }
 
+/**
+ * it will check all files under the root recursively
+ */
 export function convertMathPath(relativePath: string, root: string, out: string[], callback: (out: string[]) => void, callObj?: any) {
     let markIdx = relativePath.indexOf('*');
     if (markIdx >= 0) {
@@ -160,19 +165,21 @@ export function convertMathPath(relativePath: string, root: string, out: string[
         matchStr = matchStr.replace(/\./g, '\\.')
         matchStr = matchStr.replace(/\*/g, '.*');
         let matchReg = new RegExp(matchStr);
-
-        fs.readdir(fullDir, getErrCallback((fileList: string[]) => {
-            for (let i = fileList.length - 1; i >= 0; i--) {
-                let fileName = fileList[i];
-                if (fileName.match(matchReg)) {//todo care dir
-                    let fullPath = path.join(fullDir, fileName);
-                    out.push(path.relative(root, fullPath));
+        walkDir(fullDir, fileFullPath => {
+            let fileName = path.basename(fileFullPath);
+            if (fileName.match(matchReg)) {//todo care dir
+                let relativePath = path.relative(root, fileFullPath);
+                if (out.indexOf(relativePath) < 0) {
+                    out.push(relativePath);
                 }
             }
+        }, null, () => {
             callback.call(callObj, out);
-        }))
+        })
     } else {
-        out.push(relativePath);
+        if (out.indexOf(relativePath) < 0) {
+            out.push(relativePath);
+        }
         callback.call(callObj, out);
     }
 }
