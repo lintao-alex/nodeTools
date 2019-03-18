@@ -1,15 +1,13 @@
 /**
  * Created by lintao_alex on 2019/3/15
  */
-import {pickCliArgv, walkObj} from "../common/utils";
+import {walkObj} from "../common/utils";
 import {BasePicker} from "../tools/pkgPicker";
 import * as fs from "fs";
 import {
-    copyFileWithDirCreation,
     paving,
     getErrCallback,
     getMD5,
-    convertMathPath,
     convertMathPathList
 } from "../common/FileUtils";
 import * as path from "path";
@@ -17,8 +15,6 @@ import {replaceMinJs} from "../tools/scriptReleaser";
 import {log} from "util";
 
 let versionMark = '?v='
-let fileRelativeList: string[];
-let versionMap: any;
 function main(){
     fs.readFile(process.argv[2], {encoding: 'utf8'}, getErrCallback((content: string)=>{
         let fileCfg: IFileCfg = JSON.parse(content);
@@ -89,11 +85,17 @@ function createManifestFile(srcRoot: string, manifestPath: string, destRoot: str
             minManifestFileName = 'manifestMin.json';
         }
         let orgManifest:IManifest = JSON.parse(mcStr);
-        writeManifestWithVersion(srcRoot, orgManifest, path.join(destRoot, orgManifestFileName));
         let minManifest = JSON.parse(mcStr);//todo object copy
-        let minScriptObj = minManifest.scripts;
-        replaceMinJs(srcRoot, minScriptObj, ()=>{
-            writeManifestWithVersion(srcRoot, minManifest, path.join(destRoot, minManifestFileName));
+        let assetsParams = orgManifest.assetsParams;
+        let versionFullPath = path.join(srcRoot, assetsParams.resourceRoot, assetsParams.configUrl);
+        getMD5(versionFullPath, md5=>{
+            orgManifest.assetsParams.configVersion = md5;
+            minManifest.assetsParams.configVersion = md5;
+            writeManifestWithVersion(srcRoot, orgManifest, path.join(destRoot, orgManifestFileName));
+            let minScriptObj = minManifest.scripts;
+            replaceMinJs(srcRoot, minScriptObj, ()=>{
+                writeManifestWithVersion(srcRoot, minManifest, path.join(destRoot, minManifestFileName));
+            })
         })
     }))
 }
@@ -134,4 +136,5 @@ interface IFileCfg {
 
 interface IManifest {
     scripts: object;
+    assetsParams: {configVersion: string, resourceRoot: string, configUrl: string};
 }

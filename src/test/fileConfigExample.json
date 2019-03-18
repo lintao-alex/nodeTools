@@ -7,7 +7,7 @@
   "include": [
     "libs",
     "platform",
-    "bin-debug",
+    "dist",
     "resource",
     "index.html"
   ],
