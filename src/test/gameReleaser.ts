@@ -14,7 +14,7 @@ import * as path from "path";
 import {replaceMinJs} from "../tools/scriptReleaser";
 import {log} from "util";
 
-let versionMark = '?v='
+let versionMark = '?v=';
 function main(){
     fs.readFile(process.argv[2], {encoding: 'utf8'}, getErrCallback((content: string)=>{
         let fileCfg: IFileCfg = JSON.parse(content);
