@@ -85,7 +85,9 @@ function createManifestFile(srcRoot: string, manifestPath: string, destRoot: str
             minManifestFileName = 'manifestMin.json';
         }
         let orgManifest:IManifest = JSON.parse(mcStr);
+        walkObj(orgManifest.scripts, removeScriptVersionInfo)
         let minManifest = JSON.parse(mcStr);//todo object copy
+        walkObj(minManifest.scripts, removeScriptVersionInfo)
         let assetsParams = orgManifest.assetsParams;
         let versionFullPath = path.join(srcRoot, assetsParams.resourceRoot, assetsParams.configUrl);
         getMD5(versionFullPath, md5=>{
@@ -98,6 +100,15 @@ function createManifestFile(srcRoot: string, manifestPath: string, destRoot: str
             })
         })
     }))
+}
+
+function removeScriptVersionInfo(value: any, key: string, obj: any){
+    if( typeof value == "string"){
+        if(value.indexOf('http')!=0){
+            let vIdx = value.indexOf(versionMark);
+            if(vIdx>=0) obj[key] = value.slice(0, vIdx);
+        }
+    }
 }
 
 function writeManifestWithVersion(scrRoot: string, manifestObj: any, trgPath: string){
