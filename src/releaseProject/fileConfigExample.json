@@ -1,0 +1,20 @@
+{
+  "srcRoot": "D:/WORK/prj-yjqz/client_AWY/yjqz",
+  "destRoot": "G:/release",
+  "versionFullPath": "D:/WORK/prj-yjqz/client_AWY/tool/version/releaseVersion.json",
+  "enterFile": "access/platform/default/cfg/generatorParams.json",
+  "noCheckList": [
+    "access/platform/default/cfg/accessParams.json",
+    "access/platform/default/resource/resource.json",
+    "game/default/resource/resource.json"
+  ],
+  "resourceRootList": [
+    "access/platform/default/resource",
+    "game/default/resource"
+  ],
+  "singleFileList": [
+    "access/platform/default/dist/generator.min.js",
+    "favicon.ico",
+    "index.html"
+  ]
+}

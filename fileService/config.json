@@ -1,5 +1,5 @@
 {
   "port": 8080,
-  "root": "F:\\TestCode\\html",
+  "root": "G:\\release\\",
   "browser": "call \"C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe\""
 }

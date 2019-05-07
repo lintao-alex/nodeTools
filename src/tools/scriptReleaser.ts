@@ -19,9 +19,9 @@ export function replaceMinJs(root: string, mapObj: any, finCall: (...args: any[]
     }
 }
 
-function checkMinJs(orgPath: string, key: string, obj: any, root: string, finCall: (...args: any[]) => void) {
+export function checkMinJs(orgPath: string, key: string, obj: any, root: string, finCall: (...args: any[]) => void) {
     let minMark = '.min.js';
-    if (orgPath.lastIndexOf(minMark) + minMark.length !== orgPath.length) {
+    if (orgPath.slice(-minMark.length) !== minMark) {
         let minPath = orgPath.slice(0, -2) + 'min.' + orgPath.slice(-2);
         let realPath = path.join(path.normalize(root), path.normalize(minPath));
         fs.access(realPath, fs.constants.F_OK, err => {
@@ -32,3 +32,4 @@ function checkMinJs(orgPath: string, key: string, obj: any, root: string, finCal
         finCall()
     }
 }
+
