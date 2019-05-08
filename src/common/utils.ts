@@ -20,7 +20,7 @@ export function isBaseValue(obj: any) {
     return typeof obj !== 'object';
 }
 
-export function walkObj(obj: any, dealFuc: (value:any, key:string, obj:any)=>void, callObj?:any){
+export function walkObj(obj: any, dealFuc: (value:any, key:string, curObj:any)=>void, callObj?:any){
     let keys = Object.keys(obj);
     for (let i = keys.length - 1; i >= 0; i--) {
         let key = keys[i];

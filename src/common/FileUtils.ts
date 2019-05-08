@@ -184,3 +184,8 @@ export function convertMathPath(relativePath: string, root: string, out: string[
     }
 }
 
+export function coverToUnixPath(value: string){
+    let reg = /\\/g
+    return value.replace(reg, '/');
+}
+

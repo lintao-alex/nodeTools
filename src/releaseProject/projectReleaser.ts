@@ -1,8 +1,15 @@
 /**
  * Created by lintao_alex on 2019/5/6
+ * 要做的事：
+ * 1挑出所有变化了的文件
+ * 2.在配置文件里所配的路径加上版本号，同时将有min的js文件替换为min.js
+ * 3.部分文件里配置的是相对其所在路径的地址，生成的文件里仍要按此路径
+ * 处理思路：
+ * 1.资源与额外指定的单一文件独立处理（不列入处理流程）
+ * 2.配置了索引的文件要待其子文件处理好后再打上版本号, 此类文类对比的是拷贝至目标路径的文件，而非源文件(因为内容已与源文件不一致)
  */
 import * as fs from "fs";
-import {copyFileWithDirCreation, getErrCallback, getMD5, paving, walkDir} from "../common/FileUtils";
+import {copyFileWithDirCreation, coverToUnixPath, getErrCallback, getMD5, paving, walkDir} from "../common/FileUtils";
 import * as path from "path";
 import {walkObj} from "../common/utils";
 import {log} from "util";
@@ -16,9 +23,6 @@ let VersionMap: any;
 function main() {
     fs.readFile(process.argv[2], { encoding: 'utf8' }, getErrCallback((content: string) => {
         FileCfg = JSON.parse(content);
-        // walkObj(FileCfg, (value, key, obj)=>{
-        //     obj[key] = path.normalize(value);
-        // })
         checkCfg(FileCfg, () => {
             fs.readFile(FileCfg.versionFullPath, { encoding: 'utf8' }, (err, content) => {
                 if (err || !content) {
@@ -27,7 +31,12 @@ function main() {
                     VersionMap = JSON.parse(content);
                 }
 
-                //deal script
+                //正规化有检查用途的路径，以规避配置与实际地址的差异
+                normalizePathList(FileCfg.noCheckList);
+                normalizePathList(FileCfg.relativeCfgList);
+
+                //至此，工具配置，文件前次版本记录已准备完毕
+                //deal script and json
                 let enterFull = path.join(FileCfg.srcRoot, FileCfg.enterFile);
                 fs.readFile(enterFull, { encoding: 'utf8' }, getErrCallback((content) => {
                     let enterObj = JSON.parse(content);
@@ -56,6 +65,7 @@ function main() {
     }))
 }
 
+
 function dealResourceRoot(relativeDir: string) {
     let fullDir = path.join(FileCfg.srcRoot, relativeDir);
     walkDir(fullDir, fullPath => {
@@ -64,6 +74,25 @@ function dealResourceRoot(relativeDir: string) {
             dealFile(relativePath)
         }
     })
+}
+
+function dealRelativeCfg(cfgPath: string, key: string, parentObj: any, resolve: ()=>void, reject: ()=>void, cutDir?: string){
+    let fullPath = path.join(FileCfg.srcRoot, cfgPath);
+    fs.readFile(fullPath, {encoding: 'utf8'}, getErrCallback((content: string)=>{
+        let cfgDir = path.dirname(cfgPath);
+        let cfgObj = JSON.parse(content);
+        let pmsList: Promise<any>[] = []
+        walkObj(cfgObj, (childRelative, key, curObj)=>{
+            let normalChildRelative = path.join(cfgDir, childRelative);
+            pmsList.push(checkProperty(normalChildRelative, key, curObj, cfgDir))
+        })
+        Promise.all(pmsList).then(()=>{
+            writeConfigJsonFile(cfgPath, cfgObj, (md5) => {
+                parentObj[key] = appendVersionMark(cfgPath, md5, cutDir);
+                resolve();
+            }, reject);
+        },reject)
+    }))
 }
 
 function checkCfg(fileCfg: IFileCfg, callback: () => void) {
@@ -80,15 +109,18 @@ function checkCfg(fileCfg: IFileCfg, callback: () => void) {
     }
 }
 
-function checkProperty(orgFilePath: string, key: string, orgObj: any) {
+function checkProperty(orgFilePath: string, key: string, orgObj: any, cutDir?: string) {
     return new Promise((resolve, reject) => {
         if (orgFilePath.indexOf(HTTP_MARK) >= 0) {
             resolve()
         } else {
             let relativePath = normalPath(removeVersionMark(orgFilePath));
-            orgObj[key] = relativePath;
-            if (FileCfg.noCheckList.indexOf(relativePath) >= 0) {
-                dealFileWithVersion(relativePath, key, orgObj, resolve, reject);
+            orgObj[key] = relativePath;//为配合checkMinJs，这里先做好清理
+            let normalPathForCheck = path.normalize(relativePath);
+            if (FileCfg.noCheckList.indexOf(normalPathForCheck) >= 0) {
+                dealFileWithVersion(relativePath, key, orgObj, resolve, reject, cutDir);
+            } else if(FileCfg.relativeCfgList.indexOf(normalPathForCheck) >= 0){
+                dealRelativeCfg(relativePath, key, orgObj, resolve, reject, cutDir);
             } else {
                 let fullPath = path.join(FileCfg.srcRoot, relativePath);
                 let extName = path.extname(relativePath)
@@ -101,7 +133,7 @@ function checkProperty(orgFilePath: string, key: string, orgObj: any) {
                         })
                         Promise.all(pmsList).then(() => {
                             writeConfigJsonFile(relativePath, childObj, (md5) => {
-                                orgObj[key] = appendVersionMark(relativePath, md5);
+                                orgObj[key] = appendVersionMark(relativePath, md5, cutDir);
                                 resolve();
                             }, reject);
                         }, reject);
@@ -109,10 +141,10 @@ function checkProperty(orgFilePath: string, key: string, orgObj: any) {
                 } else if (extName == '.js') {
                     checkMinJs(relativePath, key, orgObj, FileCfg.srcRoot, () => {
                         let minPath = orgObj[key];
-                        dealFileWithVersion(minPath, key, orgObj, resolve, reject);
+                        dealFileWithVersion(minPath, key, orgObj, resolve, reject, cutDir);
                     })
                 } else {
-                    log('what is this?')
+                    log('what is this? '+ orgFilePath)
                     reject();
                 }
             }
@@ -120,9 +152,9 @@ function checkProperty(orgFilePath: string, key: string, orgObj: any) {
     })
 }
 
-function dealFileWithVersion(relativePath: string, key: string, orgObj: any, resolve: () => void, reject: () => void) {
+function dealFileWithVersion(relativePath: string, key: string, orgObj: any, resolve: () => void, reject: () => void, cutDir?: string) {
     dealFile(relativePath, (md5) => {
-        orgObj[key] = appendVersionMark(relativePath, md5);
+        orgObj[key] = appendVersionMark(relativePath, md5, cutDir);
         resolve();
     }, reject)
 }
@@ -172,13 +204,26 @@ function removeVersionMark(value: string) {
     return value;
 }
 
-function appendVersionMark(value: string, version: string) {
+function appendVersionMark(value: string, version: string, cutDir?: string) {
+    value = coverToUnixPath(value);
+    if(cutDir){
+        cutDir = coverToUnixPath(cutDir);
+        value = value.replace(cutDir, '');
+        if(value.charAt(0) === '/') value = value.substring(1);
+    }
     return value + VERSION_MARK + version;
 }
 
 function normalPath(value: string) {
     if (value.indexOf('./') == 0) return value.substring(2)
     return value;
+}
+
+function normalizePathList(list: string[]){
+    for (let i = list.length - 1; i >= 0; i--) {
+        let orgPath = list[i];
+        list[i] = path.normalize(orgPath);
+    }
 }
 
 main();
@@ -189,6 +234,7 @@ interface IFileCfg {
     versionFullPath: string;
     enterFile: string;
     noCheckList: string[];//从enterFile索引，不必打开，只管自身的文件
+    relativeCfgList: string[];//所配文件与自身在同一文件夹下，且发布后的配置路径保持不变
     resourceRootList: string[];//资源配置文件
     singleFileList: string[];//额外指定的文件
 }
