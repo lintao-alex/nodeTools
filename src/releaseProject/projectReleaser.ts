@@ -234,7 +234,7 @@ interface IFileCfg {
     versionFullPath: string;
     enterFile: string;
     noCheckList: string[];//从enterFile索引，不必打开，只管自身的文件
-    relativeCfgList: string[];//所配文件与自身在同一文件夹下，且发布后的配置路径保持不变
+    relativeCfgList: string[];//里面配的路径是相对自身的
     resourceRootList: string[];//资源配置文件
     singleFileList: string[];//额外指定的文件
 }
