@@ -15,6 +15,9 @@ import {walkObj} from "../common/utils";
 import {log} from "util";
 import {checkMinJs, replaceMinJs} from "../tools/scriptReleaser";
 
+const PREVIEW = 'preview';
+const ONLINE = 'online';
+
 let VERSION_MARK = '?v=';
 let HTTP_MARK = '://';
 let FileCfg: IFileCfg;
@@ -46,9 +49,19 @@ function main() {
                     });
                     Promise.all(pmsList).then(() => {
                         writeConfigJsonFile(FileCfg.enterFile, enterObj, (md5) => {
-                            fs.writeFile(FileCfg.versionFullPath, JSON.stringify(VersionMap), { encoding: 'utf8' }, getErrCallback(() => {
+                            fs.writeFile(FileCfg.versionFullPath, JSON.stringify(VersionMap, null, 2), { encoding: 'utf8' }, getErrCallback(() => {
                                 log('[version] new version recorded')
                             }))
+                            if(FileCfg.isOnline){
+                                let previewFullPath = path.join(FileCfg.destRoot, 'game', PREVIEW);
+                                fs.access(previewFullPath, fs.constants.F_OK, err=>{
+                                    if(!err){
+                                        fs.rename(previewFullPath, path.join(FileCfg.destRoot, 'game', ONLINE), getErrCallback(()=>{
+                                            log('preview fold has been changed to online')
+                                        }))
+                                    }
+                                })
+                            }
                         });
                     })
                 }))
@@ -233,6 +246,7 @@ interface IFileCfg {
     destRoot: string;
     versionFullPath: string;
     enterFile: string;
+    isOnline?:boolean;//是否将游戏导出目录下的preview改名为online
     noCheckList: string[];//从enterFile索引，不必打开，只管自身的文件
     relativeCfgList: string[];//里面配的路径是相对自身的
     resourceRootList: string[];//资源配置文件
